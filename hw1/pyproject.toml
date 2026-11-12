@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "datasets>=4.4.1",
+    "einops>=0.8.2",
     "gym-pusht>=0.1.6",
     "imageio>=2.37.2",
     "imageio-ffmpeg>=0.6.0",
