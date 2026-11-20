@@ -10,6 +10,8 @@ from torch import distributions
 
 from infrastructure import pytorch_util as ptu
 
+from einops import rearrange
+
 
 class MLPPolicy(nn.Module):
     """Base MLP policy, which can take an observation and output a distribution over actions.
@@ -44,9 +46,7 @@ class MLPPolicy(nn.Module):
                 n_layers=n_layers,
                 size=layer_size,
             ).to(ptu.device)
-            self.logstd = nn.Parameter(
-                torch.zeros(ac_dim, dtype=torch.float32, device=ptu.device)
-            )
+            self.logstd = nn.Parameter(torch.zeros(ac_dim, dtype=torch.float32, device=ptu.device))
             parameters = itertools.chain([self.logstd], self.mean_net.parameters())
 
         self.optimizer = optim.Adam(
@@ -59,9 +59,13 @@ class MLPPolicy(nn.Module):
     @torch.no_grad()
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
-        # TODO: implement get_action
-        action = None
+        # TODO: see if it works with cont
 
+        obs = torch.as_tensor(obs, dtype=torch.float32, device=ptu.device)
+        obs = rearrange(obs, "o -> 1 o")
+
+        act_dist = self(obs)
+        action = act_dist.sample().cpu().numpy()
         return action
 
     def forward(self, obs: torch.FloatTensor):
@@ -71,8 +75,9 @@ class MLPPolicy(nn.Module):
         flexible objects, such as a `torch.distributions.Distribution` object. It's up to you!
         """
         if self.discrete:
-            # TODO: define the forward pass for a policy with a discrete action space.
-            pass
+            logits = self.logits_net(obs)
+            return D.Categorical(logits=logits)
+
         else:
             # TODO: define the forward pass for a policy with a continuous action space.
             pass
@@ -95,15 +100,18 @@ class MLPPolicyPG(MLPPolicy):
         advantages: np.ndarray,
     ) -> dict:
         """Implements the policy gradient actor update."""
+
         obs = ptu.from_numpy(obs)
         actions = ptu.from_numpy(actions)
         advantages = ptu.from_numpy(advantages)
 
-        # TODO: compute the policy gradient actor loss
-        loss = None
+        # basically weighted CE by advantages
+        log_probs = self(obs).log_prob(actions)
+        loss = -(log_probs * advantages).mean()
 
-        # TODO: perform an optimizer step
-        pass
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
         return {
             "Actor Loss": loss.item(),

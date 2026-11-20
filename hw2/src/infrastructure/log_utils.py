@@ -121,7 +121,7 @@ def setup_wandb(
             start_method='thread',
             _disable_stats=False,
         ),
-        mode=mode,
+        mode=os.environ.get('WANDB_MODE', mode),
         save_code=True,
     )
 

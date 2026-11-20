@@ -11,9 +11,7 @@ from typing import Dict, Tuple, List
 ############################################
 
 
-def sample_trajectory(
-    env: gym.Env, policy: MLPPolicy, max_length: int, render: bool = False
-) -> Dict[str, np.ndarray]:
+def sample_trajectory(env: gym.Env, policy: MLPPolicy, max_length: int, render: bool = False) -> Dict[str, np.ndarray]:
     """Sample a rollout in the environment from a policy."""
     ob = env.reset()
     obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
@@ -25,19 +23,15 @@ def sample_trajectory(
                 img = env.sim.render(camera_name="track", height=500, width=500)[::-1]
             else:
                 img = env.render(mode="single_rgb_array")
-            image_obs.append(
-                cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC)
-            )
+            image_obs.append(cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC))
 
-        # TODO use the most recent ob to decide what to do
-        ac = None
+        ac = policy.get_action(ob)[0]  # TODO check if [0] always
 
-        # TODO: take that action and get reward and next ob
-        next_ob, rew, done, info = None, None, None, None
+        # take that action and get reward and next ob
+        next_ob, rew, done, info = env.step(ac)
 
-        # TODO rollout can end due to done, or due to max_length
         steps += 1
-        rollout_done = None
+        rollout_done = done or steps >= max_length
 
         # record result of taking that action
         obs.append(ob)
@@ -82,9 +76,7 @@ def sample_trajectories(
     return trajs, timesteps_this_batch
 
 
-def sample_n_trajectories(
-    env: gym.Env, policy: MLPPolicy, ntraj: int, max_length: int, render: bool = False
-):
+def sample_n_trajectories(env: gym.Env, policy: MLPPolicy, ntraj: int, max_length: int, render: bool = False):
     """Collect ntraj rollouts."""
     trajs = []
     for _ in range(ntraj):
