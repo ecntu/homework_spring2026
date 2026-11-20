@@ -73,10 +73,10 @@ class PGAgent(nn.Module):
 
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
-            # TODO: perform `self.baseline_gradient_steps` updates to the critic/baseline network
-            critic_info = None
-
-            info.update(critic_info)
+            # perform `self.baseline_gradient_steps` updates to the critic/baseline network
+            for _ in range(self.baseline_gradient_steps):
+                critic_info = self.critic.update(obs, q_values)
+                info.update(critic_info)
 
         return info
 
@@ -128,13 +128,14 @@ class PGAgent(nn.Module):
         if self.critic is None:
             advantages = q_values  # if no baseline, then the advantages are the q_values
         else:
-            # TODO: run the critic and use it as a baseline
-            values = None
+            # run critic and use it as baseline
+            with torch.no_grad():  # grads shouldn't flow through the critic during advantage estimation
+                values = self.critic(ptu.from_numpy(obs)).cpu().numpy()
+
             assert values.shape == q_values.shape
 
             if self.gae_lambda is None:
-                # TODO: if using a baseline, but not GAE, what are the advantages?
-                advantages = None
+                advantages = q_values - values
             else:
                 # TODO: implement GAE
                 batch_size = obs.shape[0]

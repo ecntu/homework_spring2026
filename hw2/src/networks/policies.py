@@ -10,7 +10,7 @@ from torch import distributions
 
 from infrastructure import pytorch_util as ptu
 
-from einops import rearrange
+from einops import rearrange, einsum
 
 
 class MLPPolicy(nn.Module):
@@ -49,17 +49,13 @@ class MLPPolicy(nn.Module):
             self.logstd = nn.Parameter(torch.zeros(ac_dim, dtype=torch.float32, device=ptu.device))
             parameters = itertools.chain([self.logstd], self.mean_net.parameters())
 
-        self.optimizer = optim.Adam(
-            parameters,
-            learning_rate,
-        )
+        self.optimizer = optim.Adam(parameters, learning_rate)
 
         self.discrete = discrete
 
     @torch.no_grad()
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
-        # TODO: see if it works with cont
 
         obs = torch.as_tensor(obs, dtype=torch.float32, device=ptu.device)
         obs = rearrange(obs, "o -> 1 o")
@@ -79,8 +75,9 @@ class MLPPolicy(nn.Module):
             return D.Categorical(logits=logits)
 
         else:
-            # TODO: define the forward pass for a policy with a continuous action space.
-            pass
+            mean = self.mean_net(obs)
+            std = torch.exp(self.logstd)  # TODO check: why logstd?
+            return D.Normal(mean, std)
 
     def update(self, obs: np.ndarray, actions: np.ndarray, *args, **kwargs) -> dict:
         """
@@ -101,13 +98,12 @@ class MLPPolicyPG(MLPPolicy):
     ) -> dict:
         """Implements the policy gradient actor update."""
 
-        obs = ptu.from_numpy(obs)
-        actions = ptu.from_numpy(actions)
-        advantages = ptu.from_numpy(advantages)
+        obs, actions, advantages = ptu.from_numpy(obs), ptu.from_numpy(actions), ptu.from_numpy(advantages)
 
         # basically weighted CE by advantages
         log_probs = self(obs).log_prob(actions)
-        loss = -(log_probs * advantages).mean()
+
+        loss = -einsum(log_probs, advantages, "b ..., b -> b ...").mean()
 
         loss.backward()
         self.optimizer.step()
