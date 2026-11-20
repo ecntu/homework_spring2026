@@ -137,7 +137,6 @@ class PGAgent(nn.Module):
             if self.gae_lambda is None:
                 advantages = q_values - values
             else:
-                # TODO: implement GAE
                 batch_size = obs.shape[0]
 
                 # HINT: append a dummy T+1 value for simpler recursive calculation
@@ -145,15 +144,18 @@ class PGAgent(nn.Module):
                 advantages = np.zeros(batch_size + 1)
 
                 for i in reversed(range(batch_size)):
-                    # TODO: recursively compute advantage estimates starting from timestep T.
                     # HINT: use terminals to handle edge cases. terminals[i] is 1 if the state is the last in its
                     # trajectory, and 0 otherwise.
-                    pass
+                    if terminals[i] == 1:
+                        advantages[i] = rewards[i] - values[i]
+                    else:
+                        delta = rewards[i] + self.gamma * values[i + 1] - values[i]
+                        advantages[i] = delta + self.gamma * self.gae_lambda * advantages[i + 1]
 
                 # remove dummy advantage
                 advantages = advantages[:-1]
 
         if self.normalize_advantages:
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)  # TODO check
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         return advantages

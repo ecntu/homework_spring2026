@@ -25,7 +25,7 @@ def sample_trajectory(env: gym.Env, policy: MLPPolicy, max_length: int, render: 
                 img = env.render(mode="single_rgb_array")
             image_obs.append(cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC))
 
-        ac = policy.get_action(ob)[0]  # TODO check if [0] always
+        ac = policy.get_action(ob)
 
         # take that action and get reward and next ob
         next_ob, rew, done, info = env.step(ac)

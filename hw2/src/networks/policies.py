@@ -62,7 +62,7 @@ class MLPPolicy(nn.Module):
 
         act_dist = self(obs)
         action = act_dist.sample().cpu().numpy()
-        return action
+        return rearrange(action, "1 ... -> ...")
 
     def forward(self, obs: torch.FloatTensor):
         """
@@ -76,8 +76,8 @@ class MLPPolicy(nn.Module):
 
         else:
             mean = self.mean_net(obs)
-            std = torch.exp(self.logstd)  # TODO check: why logstd?
-            return D.Normal(mean, std)
+            std = torch.exp(self.logstd)
+            return D.Independent(D.Normal(mean, std), 1)
 
     def update(self, obs: np.ndarray, actions: np.ndarray, *args, **kwargs) -> dict:
         """
@@ -103,7 +103,7 @@ class MLPPolicyPG(MLPPolicy):
         # basically weighted CE by advantages
         log_probs = self(obs).log_prob(actions)
 
-        loss = -einsum(log_probs, advantages, "b ..., b -> b ...").mean()
+        loss = -(log_probs * advantages).mean()
 
         loss.backward()
         self.optimizer.step()
