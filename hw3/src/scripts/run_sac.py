@@ -166,7 +166,7 @@ def make_logger(config: dict, args: argparse.Namespace) -> Logger:
         project=args.wandb_project,
         group=config["log_name"],
         name=logdir.split("/")[-1],
-        mode="online",
+        mode=os.environ.get("WANDB_MODE", "online"),
         config=wandb_config,
     )
 
